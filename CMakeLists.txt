@@ -43,6 +43,7 @@ set(VELOX_BUILD_VECTOR_TEST_UTILS
 set(VELOX_DEPENDENCY_SOURCE
     AUTO
     CACHE STRING "Default dependency source: AUTO SYSTEM or BUNDLED.")
+set(VELOX_ENABLE_PARQUET ON)
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
@@ -133,3 +134,5 @@ add_subdirectory(dwio/nimble/tablet)
 add_subdirectory(dwio/nimble/tools)
 add_subdirectory(dwio/nimble/encodings)
 add_subdirectory(dwio/nimble/velox)
+
+add_subdirectory(fff-bench)

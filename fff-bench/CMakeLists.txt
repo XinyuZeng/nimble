@@ -1,0 +1,2 @@
+add_executable(cfb cfb.cpp)
+target_link_libraries(cfb PRIVATE nimble_velox_writer nimble_velox_reader velox_dwio_common)
