@@ -124,6 +124,9 @@ include_directories(SYSTEM velox)
 include_directories(SYSTEM velox/velox/external/xxhash)
 include_directories(SYSTEM ${CMAKE_BINARY_DIR}/_deps/xsimd-src/include/)
 
+# Add atomic library for atomic operations support
+link_libraries(atomic)
+
 add_subdirectory(velox)
 add_subdirectory(dwio/nimble/common)
 add_subdirectory(dwio/nimble/tablet)
