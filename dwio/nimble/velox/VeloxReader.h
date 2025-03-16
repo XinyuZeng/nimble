@@ -114,6 +114,10 @@ class VeloxReader {
     return pool_;
   }
 
+  double loadSchemaTime() const {
+    return loadSchemaTime_;
+  }
+
   // Returns the current row number the reader is pointing to. If there are no
   // more rows to read in the file, this will return the last row number.
   uint64_t getRowNumber();
@@ -183,6 +187,7 @@ class VeloxReader {
   uint32_t lastStripe_;
   uint64_t firstRow_;
   uint64_t lastRow_;
+  double loadSchemaTime_;
 
   // Reading state for reader
   uint32_t nextStripe_{0};

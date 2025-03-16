@@ -10,3 +10,41 @@ target_link_libraries(cfb PRIVATE
   nimble_velox_field_writer
   nimble_velox_layout_planner
 )
+
+add_executable(gen_nimble gen_nimble.cpp)
+target_link_libraries(gen_nimble PRIVATE 
+  velox_dwio_common 
+  velox_dwio_parquet_reader 
+  velox_memory
+  velox_vector
+  nimble_velox_writer 
+  nimble_velox_reader
+  nimble_velox_common
+  nimble_velox_field_writer
+  nimble_velox_layout_planner
+)
+
+add_executable(read_nimble read_nimble.cpp)
+target_link_libraries(read_nimble PRIVATE 
+  velox_dwio_common 
+  velox_dwio_parquet_reader 
+  velox_memory
+  velox_vector
+  nimble_velox_writer 
+  nimble_velox_reader
+  nimble_velox_common
+  nimble_velox_field_writer
+  nimble_velox_layout_planner
+)
+add_executable(projection_nimble projection_nimble.cpp)
+target_link_libraries(projection_nimble PRIVATE 
+  velox_dwio_common 
+  velox_dwio_parquet_reader 
+  velox_memory
+  velox_vector
+  nimble_velox_writer 
+  nimble_velox_reader
+  nimble_velox_common
+  nimble_velox_field_writer
+  nimble_velox_layout_planner
+)

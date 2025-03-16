@@ -81,9 +81,9 @@ int main(int argc, char** argv) {
 
     // Create row reader
     RowReaderOptions rowReaderOpts;
-    rowReaderOpts.select(
-        std::make_shared<facebook::velox::dwio::common::ColumnSelector>(
-            rowType, rowType->names()));
+    // rowReaderOpts.select(
+    //     std::make_shared<facebook::velox::dwio::common::ColumnSelector>(
+    //         rowType, rowType->names()));
     rowReaderOpts.setScanSpec(makeScanSpec(rowType));
     auto rowReader = pqReader->createRowReader(rowReaderOpts);
 

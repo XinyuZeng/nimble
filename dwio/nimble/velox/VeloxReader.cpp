@@ -35,10 +35,20 @@ namespace facebook::nimble {
 
 namespace {
 
+// Helper function to format duration to milliseconds
+double toMilliseconds(const std::chrono::nanoseconds& duration) {
+  return std::chrono::duration<double, std::milli>(duration).count();
+}
+
 std::shared_ptr<const Type> loadSchema(const TabletReader& tabletReader) {
+  auto start = std::chrono::high_resolution_clock::now();
   auto section = tabletReader.loadOptionalSection(std::string(kSchemaSection));
   NIMBLE_CHECK(section.has_value(), "Schema not found.");
-  return SchemaDeserializer::deserialize(section->content().data());
+  auto res = SchemaDeserializer::deserialize(section->content().data());
+  std::cout << "loadSchema time: "
+            << toMilliseconds(std::chrono::high_resolution_clock::now() - start)
+            << " ms" << std::endl;
+  return res;
 }
 
 std::map<std::string, std::string> loadMetadata(
@@ -191,11 +201,11 @@ VeloxReader::VeloxReader(
     : pool_{pool},
       tabletReader_{std::move(tabletReader)},
       parameters_{std::move(params)},
-      schema_{loadSchema(*tabletReader_)},
-      type_{
-          selector ? selector->getSchema()
-                   : std::dynamic_pointer_cast<const velox::RowType>(
-                         convertToVeloxType(*schema_))},
+      // schema_{loadSchema(*tabletReader_)},
+      // type_{
+      //     selector ? selector->getSchema()
+      //              : std::dynamic_pointer_cast<const velox::RowType>(
+      //                    convertToVeloxType(*schema_))},
       barrier_{
           parameters_.decodingExecutor
               ? std::make_unique<velox::dwio::common::ExecutorBarrier>(
@@ -204,11 +214,26 @@ VeloxReader::VeloxReader(
       logger_{
           parameters_.metricsLogger ? parameters_.metricsLogger
                                     : std::make_shared<MetricsLogger>()} {
+  auto start = std::chrono::high_resolution_clock::now();
+  schema_ = loadSchema(*tabletReader_);
+  loadSchemaTime_ =
+      toMilliseconds(std::chrono::high_resolution_clock::now() - start);
+  type_ = selector ? selector->getSchema()
+                   : std::dynamic_pointer_cast<const velox::RowType>(
+                         convertToVeloxType(*schema_));
+  // std::cout << "convertToVeloxType time: "
+  //           << toMilliseconds(std::chrono::high_resolution_clock::now() -
+  //           start)
+  //           << " ms" << std::endl;
   static_assert(std::is_same_v<velox::vector_size_t, int32_t>);
 
   if (!selector) {
     selector = std::make_shared<velox::dwio::common::ColumnSelector>(type_);
   }
+  // std::cout << "make selector time: "
+  //           << toMilliseconds(std::chrono::high_resolution_clock::now() -
+  //           start)
+  //           << " ms" << std::endl;
   auto schemaWithId = selector->getSchemaWithId();
   rootFieldReaderFactory_ = FieldReaderFactory::create(
       parameters_,
@@ -219,6 +244,10 @@ VeloxReader::VeloxReader(
       [selector](auto nodeId) { return selector->shouldReadNode(nodeId); },
       barrier_.get());
 
+  // std::cout << "FieldReaderFactory time: "
+  //           << toMilliseconds(std::chrono::high_resolution_clock::now() -
+  //           start)
+  //           << " ms" << std::endl;
   // We scope down the allowed stripes based on the passed in offset ranges.
   // These ranges represent file splits.
   // File splits contain a file path and a range of bytes (not rows) withing
@@ -274,13 +303,20 @@ VeloxReader::VeloxReader(
       parameters_.stripeCountCallback(0);
     }
   }
-
+  // std::cout << "Stripe ops time: "
+  //           << toMilliseconds(std::chrono::high_resolution_clock::now() -
+  //           start)
+  //           << " ms" << std::endl;
   VLOG(1) << "TabletReader handling stripes: " << firstStripe_ << " -> "
           << lastStripe_ << " (rows " << firstRow_ << " -> " << lastRow_
           << "). Total stripes: " << stripeCount
           << ". Total rows: " << tabletReader_->tabletRowCount();
 
   unitLoader_ = getUnitLoader();
+  // std::cout << "getUnitLoader time: "
+  //           << toMilliseconds(std::chrono::high_resolution_clock::now() -
+  //           start)
+  //           << " ms" << std::endl;
 }
 
 void VeloxReader::loadStripeIfAny() {
