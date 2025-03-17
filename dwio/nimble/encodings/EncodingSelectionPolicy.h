@@ -211,6 +211,7 @@ class ManualEncodingSelectionPolicy : public EncodingSelectionPolicy<T> {
 #else
         CompressionInformation information{
             .compressionType = CompressionType::Zstd};
+        // .compressionType = CompressionType::Uncompressed};
         information.parameters.zstd.compressionLevel =
             compressionOptions_.zstdCompressionLevel;
         return information;

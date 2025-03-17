@@ -200,31 +200,38 @@ VeloxReader::VeloxReader(
     VeloxReadParams params)
     : pool_{pool},
       tabletReader_{std::move(tabletReader)},
-      parameters_{std::move(params)},
-      // schema_{loadSchema(*tabletReader_)},
-      // type_{
-      //     selector ? selector->getSchema()
-      //              : std::dynamic_pointer_cast<const velox::RowType>(
-      //                    convertToVeloxType(*schema_))},
-      barrier_{
-          parameters_.decodingExecutor
-              ? std::make_unique<velox::dwio::common::ExecutorBarrier>(
-                    parameters_.decodingExecutor)
-              : nullptr},
-      logger_{
-          parameters_.metricsLogger ? parameters_.metricsLogger
-                                    : std::make_shared<MetricsLogger>()} {
+      parameters_{std::move(params)} // ,
+// schema_{loadSchema(*tabletReader_)},
+// type_{
+//     selector ? selector->getSchema()
+//              : std::dynamic_pointer_cast<const velox::RowType>(
+//                    convertToVeloxType(*schema_))},
+// barrier_{
+//     parameters_.decodingExecutor
+//         ? std::make_unique<velox::dwio::common::ExecutorBarrier>(
+//               parameters_.decodingExecutor)
+//         : nullptr},
+// logger_{
+//     parameters_.metricsLogger ? parameters_.metricsLogger
+//                               : std::make_shared<MetricsLogger>()}
+{
   auto start = std::chrono::high_resolution_clock::now();
   schema_ = loadSchema(*tabletReader_);
-  loadSchemaTime_ =
-      toMilliseconds(std::chrono::high_resolution_clock::now() - start);
   type_ = selector ? selector->getSchema()
                    : std::dynamic_pointer_cast<const velox::RowType>(
                          convertToVeloxType(*schema_));
-  // std::cout << "convertToVeloxType time: "
-  //           << toMilliseconds(std::chrono::high_resolution_clock::now() -
-  //           start)
-  //           << " ms" << std::endl;
+  loadSchemaTime_ =
+      toMilliseconds(std::chrono::high_resolution_clock::now() - start);
+
+  barrier_ = parameters_.decodingExecutor
+      ? std::make_unique<velox::dwio::common::ExecutorBarrier>(
+            parameters_.decodingExecutor)
+      : nullptr;
+  logger_ = parameters_.metricsLogger ? parameters_.metricsLogger
+                                      : std::make_shared<MetricsLogger>();
+  std::cout << "barrier_ logger_ time: "
+            << toMilliseconds(std::chrono::high_resolution_clock::now() - start)
+            << " ms" << std::endl;
   static_assert(std::is_same_v<velox::vector_size_t, int32_t>);
 
   if (!selector) {

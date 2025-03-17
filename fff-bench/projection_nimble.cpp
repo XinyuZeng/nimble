@@ -4,7 +4,10 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <memory>
 #include <random>
+#include <string>
+#include <unordered_map>
 #include "dwio/nimble/velox/VeloxReader.h"
 #include "velox/common/file/File.h"
 #include "velox/common/memory/Memory.h"
@@ -51,13 +54,8 @@ std::vector<uint64_t> getRandomColumns(
 int main() {
   // Define input Nimble files to read
   std::vector<std::string> fileNumbers = {
-      // "2333", "10", "20", "100", "1000", "10000", "50000", "100000"};
-      "100000"};
-
-  std::vector<std::string> inputs;
-  for (const auto& num : fileNumbers) {
-    inputs.push_back("/home/xinyu/fff-devel/data/" + num + ".nimble");
-  }
+      "2333", "10", "20", "100", "1000", "10000", "50000", "100000"};
+  // "100000"};
 
   // Initialize memory management
   velox::memory::MemoryManager::testingSetInstance({});
@@ -68,43 +66,49 @@ int main() {
   std::ofstream csvFile("nimble_projection_times.csv");
   csvFile
       << "filename,num_columns,total_rows,read_time_ms,throughput_mrows_per_sec\n";
+  std::unordered_map<int, std::shared_ptr<dwio::common::ColumnSelector>>
+      selectors;
+  std::unordered_map<int, double> loadSchemaTimes;
+  for (const auto& num : fileNumbers) {
+    // Get total number of columns and select 10 random ones
+    uint32_t totalColumns = std::stoi(num);
+    auto selectedColumns = getRandomColumns(totalColumns, 10);
+    std::cout << "Selected columns: ";
+    for (auto col : selectedColumns) {
+      std::cout << col << " ";
+    }
+    std::cout << std::endl;
+
+    // Create reader to get schema first
+    auto readFile = std::make_shared<velox::LocalReadFile>(
+        "/home/xinyu/fff-devel/data/copy/" + num + ".nimble");
+    auto startTime0 = std::chrono::high_resolution_clock::now();
+    // A lot of time will be spent here if we do not pass in projection
+    VeloxReader schemaReader(*leafPool, readFile.get());
+    auto endTime0 = std::chrono::high_resolution_clock::now();
+    std::cout << "Schema reader time: " << toMilliseconds(endTime0 - startTime0)
+              << " ms" << std::endl;
+    loadSchemaTimes[std::stoi(num)] = schemaReader.loadSchemaTime();
+    startTime0 = std::chrono::high_resolution_clock::now();
+    auto selector = std::make_shared<dwio::common::ColumnSelector>(
+        schemaReader.type(), selectedColumns);
+    loadSchemaTimes[std::stoi(num)] += toMilliseconds(endTime0 - startTime0);
+    selectors[std::stoi(num)] = selector;
+    endTime0 = std::chrono::high_resolution_clock::now();
+    std::cout << "Selector time: " << toMilliseconds(endTime0 - startTime0)
+              << " ms" << std::endl;
+  }
 
   // Process each Nimble file
   for (const auto& num : fileNumbers) {
     try {
       std::cout << "Reading " << num << std::endl;
-
-      // Get total number of columns and select 10 random ones
-      uint32_t totalColumns = std::stoi(num);
-      auto selectedColumns = getRandomColumns(totalColumns, 10);
-      std::cout << "Selected columns: ";
-      for (auto col : selectedColumns) {
-        std::cout << col << " ";
-      }
-      std::cout << std::endl;
-
-      // Create reader to get schema first
+      auto num_int = std::stoi(num);
+      auto startTime = std::chrono::high_resolution_clock::now();
+      // Create new reader with selected columns
       auto readFile = std::make_shared<velox::LocalReadFile>(
           "/home/xinyu/fff-devel/data/" + num + ".nimble");
-      auto startTime0 = std::chrono::high_resolution_clock::now();
-      // A lot of time will be spent here if we do not pass in projection
-      VeloxReader schemaReader(*leafPool, readFile.get());
-      auto loadSchemaTime = schemaReader.loadSchemaTime();
-      auto endTime0 = std::chrono::high_resolution_clock::now();
-      std::cout << "Schema reader time: "
-                << toMilliseconds(endTime0 - startTime0) << " ms" << std::endl;
-      auto selector = std::make_shared<dwio::common::ColumnSelector>(
-          schemaReader.type(), selectedColumns);
-      endTime0 = std::chrono::high_resolution_clock::now();
-      std::cout << "Selector time: " << toMilliseconds(endTime0 - startTime0)
-                << " ms" << std::endl;
-
-      auto startTime = std::chrono::high_resolution_clock::now();
-
-      // Create new reader with selected columns
-      readFile = std::make_shared<velox::LocalReadFile>(
-          "/home/xinyu/fff-devel/data/" + num + ".nimble");
-      VeloxReader reader(*leafPool, readFile.get(), selector);
+      VeloxReader reader(*leafPool, readFile.get(), selectors[num_int]);
 
       // Read batches and measure time
       constexpr int32_t batchSize = 64 * 1024;
@@ -124,12 +128,12 @@ int main() {
       auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
           endTime - startTime);
 
-      double ms = toMilliseconds(duration) + loadSchemaTime;
+      double ms = toMilliseconds(duration) + loadSchemaTimes[num_int];
       double throughput = calculateThroughput(totalRows, ms);
 
       // Write results to CSV
-      csvFile << num << "," << selectedColumns.size() << "," << totalRows << ","
-              << ms << "," << throughput << "\n";
+      csvFile << num << "," << num_int << "," << totalRows << "," << ms << ","
+              << throughput << "\n";
 
       std::cout << "Successfully read " << totalRows << " rows in " << ms
                 << " ms (" << throughput << " M rows/s)" << std::endl;
