@@ -15,6 +15,7 @@
  */
 #include "dwio/nimble/velox/VeloxWriter.h"
 
+#include <cstdint>
 #include <ios>
 #include <memory>
 
@@ -867,5 +868,9 @@ VeloxWriter::RunStats VeloxWriter::getRunStats() const {
       .inputBufferReallocCount = context_->inputBufferGrowthStats.count,
       .inputBufferReallocItemCount =
           context_->inputBufferGrowthStats.itemCount};
+}
+
+uint64_t VeloxWriter::mem_used() {
+  return context_->memoryUsed;
 }
 } // namespace facebook::nimble

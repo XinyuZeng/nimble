@@ -97,6 +97,7 @@ int main() {
     fs::create_directories(input + output_dir);
   }
 
+  // Proj exp data
   // for (const auto& input : inputs) {
   //   for (const auto& entry : fs::directory_iterator(input)) {
   //     if (entry.path().extension() == ".parquet") {
@@ -112,6 +113,7 @@ int main() {
   //   }
   // }
 
+  // comp exp data
   // Process each Parquet file in the input directory
   for (const auto& input : inputs) {
     auto inputPath = input + "parquet/";

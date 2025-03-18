@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <cstdint>
 #include "dwio/nimble/common/Buffer.h"
 #include "dwio/nimble/tablet/TabletWriter.h"
 #include "dwio/nimble/velox/FieldWriter.h"
@@ -67,6 +68,8 @@ class VeloxWriter {
   void flush();
 
   RunStats getRunStats() const;
+
+  uint64_t mem_used();
 
  private:
   std::shared_ptr<const velox::dwio::common::TypeWithId> schema_;
