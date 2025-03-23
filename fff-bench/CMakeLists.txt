@@ -50,6 +50,15 @@ target_link_libraries(read_nimble PRIVATE
   nimble_velox_field_writer
   nimble_velox_layout_planner
 )
+
+add_executable(read_orc read_orc.cpp)
+target_link_libraries(read_orc PRIVATE 
+  velox_dwio_common 
+  velox_dwio_orc_reader
+  velox_memory
+  velox_vector
+)
+
 add_executable(projection_nimble projection_nimble.cpp)
 target_link_libraries(projection_nimble PRIVATE 
   velox_dwio_common 

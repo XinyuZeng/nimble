@@ -3,6 +3,7 @@
 #include <velox/dwio/parquet/RegisterParquetReader.h>
 #include <velox/vector/BaseVector.h>
 #include <algorithm>
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
 #include "dwio/nimble/velox/VeloxReader.h"
@@ -60,13 +61,20 @@ void convertParquetToNimbleWithMem(
   constexpr int32_t batchSize = 64 * 1024;
   velox::VectorPtr batch = BaseVector::create(rowType, 0, leafPool);
   uint64_t max_mem = 0;
+  uint64_t mem_sum = 0;
+  uint64_t cnt = 0;
   while (rowReader->next(batchSize, batch)) {
     if (batch) {
       writer.write(batch);
     }
     max_mem = std::max(max_mem, writer.mem_used());
+    if (writer.mem_used() != 0) {
+      mem_sum += writer.mem_used();
+      cnt++;
+    }
   }
   std::cout << "Max mem used: " << max_mem << std::endl;
+  std::cout << "Avg mem used: " << mem_sum / cnt << std::endl;
 
   writer.close();
   std::cout << "Successfully converted " << inputParquetFile << " to "
@@ -106,13 +114,20 @@ void convertOrcToNimbleWithMem(
   constexpr int32_t batchSize = 64 * 1024;
   velox::VectorPtr batch = BaseVector::create(rowType, 0, leafPool);
   uint64_t max_mem = 0;
+  uint64_t mem_sum = 0;
+  uint64_t cnt = 0;
   while (rowReader->next(batchSize, batch)) {
     if (batch) {
       writer.write(batch);
     }
     max_mem = std::max(max_mem, writer.mem_used());
+    if (writer.mem_used() != 0) {
+      mem_sum += writer.mem_used();
+      cnt++;
+    }
   }
   std::cout << "Max mem used: " << max_mem << std::endl;
+  std::cout << "Avg mem used: " << mem_sum / cnt << std::endl;
 
   writer.close();
   std::cout << "Successfully converted " << inputParquetFile << " to "
@@ -120,11 +135,11 @@ void convertOrcToNimbleWithMem(
 }
 
 int main() {
-  // std::string input = "/mnt/nvme0n1/xinyu/laion/orc/merged_8M.orc";
-  // std::string output = "/mnt/nvme0n1/xinyu/laion/nimble/merged_8M.nimble";
+  std::string input = "/mnt/nvme0n1/xinyu/laion/orc/merged_8M.orc";
+  std::string output = "/mnt/nvme0n1/xinyu/laion/nimble/merged_8M.nimble";
 
-  std::string input = "/mnt/nvme0n1/xinyu/data/parquet/core.parquet";
-  std::string output = "/mnt/nvme0n1/xinyu/data/nimble/core.nimble";
+  // std::string input = "/mnt/nvme0n1/xinyu/data/parquet/core.parquet";
+  // std::string output = "/mnt/nvme0n1/xinyu/data/nimble/core.nimble";
   // Initialize memory management
   velox::dwio::common::LocalFileSink::registerFactory();
   velox::filesystems::registerLocalFileSystem();
@@ -136,8 +151,9 @@ int main() {
       velox::memory::memoryManager()->addRootPool("ParquetToNimble");
   auto leafPool = rootPool->addLeafChild("leaf");
 
-  convertParquetToNimbleWithMem(input, output, rootPool.get(), leafPool.get());
-  // convertOrcToNimbleWithMem(input, output, rootPool.get(), leafPool.get());
+  // convertParquetToNimbleWithMem(input, output, rootPool.get(),
+  // leafPool.get());
+  convertOrcToNimbleWithMem(input, output, rootPool.get(), leafPool.get());
 
   std::cout << "Finished converting all Parquet files to Nimble format!"
             << std::endl;
