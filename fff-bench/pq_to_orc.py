@@ -5,6 +5,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pyarrow.orc as orc
+import os
 
 def convert_parquet_to_orc(parquet_path, orc_path):
     """
@@ -21,10 +22,26 @@ def convert_parquet_to_orc(parquet_path, orc_path):
     table = pq.read_table(parquet_path)
     
     # Write the PyArrow Table to ORC format
-    orc.write_table(table, orc_path)
+    orc.write_table(table, orc_path, compression="ZLIB", dictionary_key_size_threshold=0.8)
     
     print(f"Successfully converted {parquet_path} to {orc_path}")
 
 # Example usage
 if __name__ == "__main__":
-    convert_parquet_to_orc("parquet/merged_8M.parquet", "orc/merged_8M.orc")
+    # convert_parquet_to_orc("parquet/merged_8M.parquet", "orc/merged_8M.orc")
+    
+    parquets = [
+        "/mnt/nvme0n1/xinyu/data/parquet/bi.parquet",
+        "/mnt/nvme0n1/xinyu/data/parquet/core.parquet",
+        "/mnt/nvme0n1/xinyu/data/parquet/geo.parquet",
+        "/mnt/nvme0n1/xinyu/data/parquet/log.parquet",
+        "/mnt/nvme0n1/xinyu/data/parquet/ml.parquet",
+        "/mnt/nvme0n1/xinyu/data/parquet/classic.parquet",
+        "/mnt/nvme0n1/xinyu/tpch/parquet/lineitem_duckdb_double.parquet",
+        "/mnt/nvme0n1/xinyu/clickbench/parquet/hits_8M.parquet"
+      ]
+    
+    for parquet in parquets:
+        orc_path = parquet.replace("/parquet", "/orc_cpp").replace(".parquet", ".orc")
+        os.makedirs(os.path.dirname(orc_path), exist_ok=True)
+        convert_parquet_to_orc(parquet, orc_path)

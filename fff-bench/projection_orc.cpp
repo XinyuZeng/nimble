@@ -1,4 +1,6 @@
-#include <velox/dwio/common/ColumnSelector.h>
+/// ORC file wide table projection benchmark
+
+#include <velox/dwio/orc/reader/OrcReader.h>
 #include <velox/vector/BaseVector.h>
 #include <chrono>
 #include <filesystem>
@@ -8,13 +10,16 @@
 #include <random>
 #include <string>
 #include <unordered_map>
-#include "dwio/nimble/velox/VeloxReader.h"
 #include "velox/common/file/File.h"
 #include "velox/common/memory/Memory.h"
+#include "velox/dwio/common/BufferedInput.h"
+#include "velox/dwio/common/Options.h"
+#include "velox/dwio/common/ReaderFactory.h"
+#include "velox/dwio/common/ScanSpec.h"
 
 using namespace facebook;
 using namespace facebook::velox;
-using namespace facebook::nimble;
+using namespace facebook::velox::dwio::common;
 
 // Helper function to format duration to milliseconds
 double toMilliseconds(const std::chrono::nanoseconds& duration) {
@@ -52,32 +57,33 @@ std::vector<uint64_t> getRandomColumns(
 }
 
 int main() {
-  // Define input Nimble files to read
-  std::vector<std::string> fileNumbers = {
-      "2333",
-      "10",
-      "20",
-      "100",
-      "1000",
-      "5000",
-      "10000",
-      "20000",
-      "50000",
-      "100000"};
-  // "100000"};
+  // Define input ORC files to read
+  std::vector<std::string> fileNumbers = {// "10"};
+                                          "2333",
+                                          "10",
+                                          "20",
+                                          "100",
+                                          "1000",
+                                          "5000",
+                                          "10000",
+                                          "20000",
+                                          "50000",
+                                          "100000"};
 
-  // Initialize memory management
+  // Initialize memory management and register ORC reader
+  velox::filesystems::registerLocalFileSystem();
+  velox::orc::registerOrcReaderFactory();
   velox::memory::MemoryManager::testingSetInstance({});
-  auto rootPool = velox::memory::memoryManager()->addRootPool("NimbleReader");
+  auto rootPool = velox::memory::memoryManager()->addRootPool("OrcReader");
   auto leafPool = rootPool->addLeafChild("leaf");
 
   // Open CSV file for writing results
-  std::ofstream csvFile("nimble_projection_times.csv");
+  std::ofstream csvFile("orc_projection_times.csv");
   csvFile
       << "filename,num_columns,total_rows,read_time_ms,throughput_mrows_per_sec\n";
-  std::unordered_map<int, std::shared_ptr<dwio::common::ColumnSelector>>
-      selectors;
+  std::unordered_map<int, std::shared_ptr<velox::common::ScanSpec>> scanSpecs;
   std::unordered_map<int, double> loadSchemaTimes;
+
   for (const auto& num : fileNumbers) {
     // Get total number of columns and select 10 random ones
     uint32_t totalColumns = std::stoi(num);
@@ -89,47 +95,74 @@ int main() {
     std::cout << std::endl;
 
     // Create reader to get schema first
-    auto readFile = std::make_shared<velox::LocalReadFile>(
-        "/home/xinyu/fff-devel/data/copy/" + num + ".nimble");
+    auto factory = velox::dwio::common::getReaderFactory(
+        velox::dwio::common::FileFormat::ORC);
+    facebook::velox::dwio::common::ReaderOptions readerOpts{leafPool.get()};
+    readerOpts.setFileFormat(velox::dwio::common::FileFormat::ORC);
+
     auto startTime0 = std::chrono::high_resolution_clock::now();
-    // A lot of time will be spent here if we do not pass in projection
-    VeloxReader schemaReader(*leafPool, readFile.get());
+    auto reader = factory->createReader(
+        std::make_unique<BufferedInput>(
+            std::make_shared<LocalReadFile>(
+                "/home/xinyu/fff-devel/data/copy/" + num + ".orc"),
+            readerOpts.memoryPool()),
+        readerOpts);
     auto endTime0 = std::chrono::high_resolution_clock::now();
     std::cout << "Schema reader time: " << toMilliseconds(endTime0 - startTime0)
               << " ms" << std::endl;
-    loadSchemaTimes[std::stoi(num)] = schemaReader.loadSchemaTime();
+
+    // Create scan spec for selected columns
     startTime0 = std::chrono::high_resolution_clock::now();
-    auto selector = std::make_shared<dwio::common::ColumnSelector>(
-        schemaReader.type(), selectedColumns);
-    loadSchemaTimes[std::stoi(num)] += toMilliseconds(endTime0 - startTime0);
-    selectors[std::stoi(num)] = selector;
+    auto scanSpec = std::make_shared<velox::common::ScanSpec>("");
+    auto rowType = reader->rowType();
+    for (auto col : selectedColumns) {
+      scanSpec->addField(rowType->nameOf(col), col);
+    }
     endTime0 = std::chrono::high_resolution_clock::now();
-    std::cout << "Selector time: " << toMilliseconds(endTime0 - startTime0)
+    std::cout << "Scan spec time: " << toMilliseconds(endTime0 - startTime0)
               << " ms" << std::endl;
+    loadSchemaTimes[std::stoi(num)] = toMilliseconds(endTime0 - startTime0);
+    scanSpecs[std::stoi(num)] = scanSpec;
   }
 
-  // Process each Nimble file
+  // Process each ORC file
   for (const auto& num : fileNumbers) {
     try {
       std::cout << "Reading " << num << std::endl;
       auto num_int = std::stoi(num);
       auto startTime = std::chrono::high_resolution_clock::now();
-      // Create new reader with selected columns
-      auto readFile = std::make_shared<velox::LocalReadFile>(
-          "/home/xinyu/fff-devel/data_8rows/" + num + ".nimble");
-      VeloxReader reader(*leafPool, readFile.get(), selectors[num_int]);
+
+      // Create reader with selected columns
+      auto factory = velox::dwio::common::getReaderFactory(
+          velox::dwio::common::FileFormat::ORC);
+      facebook::velox::dwio::common::ReaderOptions readerOpts{leafPool.get()};
+      readerOpts.setFileFormat(velox::dwio::common::FileFormat::ORC);
+
+      auto reader = factory->createReader(
+          std::make_unique<BufferedInput>(
+              std::make_shared<LocalReadFile>(
+                  "/home/xinyu/fff-devel/data_8rows/" + num + ".orc"),
+              readerOpts.memoryPool()),
+          readerOpts);
+
+      // Create row reader with scan spec
+      RowReaderOptions rowReaderOpts;
+      rowReaderOpts.setScanSpec(scanSpecs[num_int]);
+      auto rowReader = reader->createRowReader(rowReaderOpts);
 
       // Read batches and measure time
       constexpr int32_t batchSize = 64 * 1024;
       std::vector<velox::VectorPtr> batches;
-      velox::VectorPtr batch = nullptr;
+      velox::VectorPtr batch =
+          BaseVector::create(reader->rowType(), batchSize, leafPool.get());
       size_t totalRows = 0;
 
-      while (reader.next(batchSize, batch)) {
+      while (rowReader->next(batchSize, batch)) {
         if (batch) {
           totalRows += batch->size();
           batches.push_back(batch);
-          batch = nullptr;
+          batch =
+              BaseVector::create(reader->rowType(), batchSize, leafPool.get());
         }
       }
 
@@ -154,6 +187,6 @@ int main() {
   }
 
   csvFile.close();
-  std::cout << "Results written to nimble_projection_times.csv" << std::endl;
+  std::cout << "Results written to orc_projection_times.csv" << std::endl;
   return 0;
 }
