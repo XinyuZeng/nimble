@@ -26,6 +26,7 @@
 #include "folly/io/Cursor.h"
 
 #include <algorithm>
+#include <iostream>
 #include <iterator>
 #include <limits>
 #include <memory>
@@ -615,6 +616,9 @@ std::vector<std::unique_ptr<StreamLoader>> TabletReader::load(
         stripeOffset + stripeStreamOffsets[streamIdentifier];
     regions.emplace_back(
         streamStart, streamSize, streamLabel(streamIdentifier));
+    // std::cout << "streamStart: " << streamStart << " streamSize: " <<
+    // streamSize
+    //           << std::endl;
     streamIdx.push_back(i);
   }
   if (!regions.empty()) {

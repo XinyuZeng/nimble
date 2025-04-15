@@ -45,9 +45,10 @@ std::shared_ptr<const Type> loadSchema(const TabletReader& tabletReader) {
   auto section = tabletReader.loadOptionalSection(std::string(kSchemaSection));
   NIMBLE_CHECK(section.has_value(), "Schema not found.");
   auto res = SchemaDeserializer::deserialize(section->content().data());
-  std::cout << "loadSchema time: "
-            << toMilliseconds(std::chrono::high_resolution_clock::now() - start)
-            << " ms" << std::endl;
+  // std::cout << "loadSchema time: "
+  //           << toMilliseconds(std::chrono::high_resolution_clock::now() -
+  //           start)
+  //           << " ms" << std::endl;
   return res;
 }
 
@@ -229,9 +230,10 @@ VeloxReader::VeloxReader(
       : nullptr;
   logger_ = parameters_.metricsLogger ? parameters_.metricsLogger
                                       : std::make_shared<MetricsLogger>();
-  std::cout << "barrier_ logger_ time: "
-            << toMilliseconds(std::chrono::high_resolution_clock::now() - start)
-            << " ms" << std::endl;
+  // std::cout << "barrier_ logger_ time: "
+  //           << toMilliseconds(std::chrono::high_resolution_clock::now() -
+  //           start)
+  //           << " ms" << std::endl;
   static_assert(std::is_same_v<velox::vector_size_t, int32_t>);
 
   if (!selector) {

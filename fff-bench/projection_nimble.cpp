@@ -51,20 +51,14 @@ std::vector<uint64_t> getRandomColumns(
   return columns;
 }
 
-int main() {
-  // Define input Nimble files to read
-  std::vector<std::string> fileNumbers = {
-      "2333",
-      "10",
-      "20",
-      "100",
-      "1000",
-      "5000",
-      "10000",
-      "20000",
-      "50000",
-      "100000"};
-  // "100000"};
+int main(int argc, char* argv[]) {
+  if (argc != 2) {
+    std::cerr << "Usage: " << argv[0] << " <file_number>" << std::endl;
+    return 1;
+  }
+
+  std::string num = argv[1];
+  uint32_t totalColumns = std::stoi(num);
 
   // Initialize memory management
   velox::memory::MemoryManager::testingSetInstance({});
@@ -72,15 +66,14 @@ int main() {
   auto leafPool = rootPool->addLeafChild("leaf");
 
   // Open CSV file for writing results
-  std::ofstream csvFile("nimble_projection_times.csv");
+  std::ofstream csvFile("nimble_projection_times_" + num + ".csv");
   csvFile
       << "filename,num_columns,total_rows,read_time_ms,throughput_mrows_per_sec\n";
-  std::unordered_map<int, std::shared_ptr<dwio::common::ColumnSelector>>
-      selectors;
-  std::unordered_map<int, double> loadSchemaTimes;
-  for (const auto& num : fileNumbers) {
+
+  try {
+    std::cout << "Reading " << num << std::endl;
+
     // Get total number of columns and select 10 random ones
-    uint32_t totalColumns = std::stoi(num);
     auto selectedColumns = getRandomColumns(totalColumns, 10);
     std::cout << "Selected columns: ";
     for (auto col : selectedColumns) {
@@ -92,65 +85,57 @@ int main() {
     auto readFile = std::make_shared<velox::LocalReadFile>(
         "/home/xinyu/fff-devel/data/copy/" + num + ".nimble");
     auto startTime0 = std::chrono::high_resolution_clock::now();
-    // A lot of time will be spent here if we do not pass in projection
     VeloxReader schemaReader(*leafPool, readFile.get());
     auto endTime0 = std::chrono::high_resolution_clock::now();
     std::cout << "Schema reader time: " << toMilliseconds(endTime0 - startTime0)
               << " ms" << std::endl;
-    loadSchemaTimes[std::stoi(num)] = schemaReader.loadSchemaTime();
+    double loadSchemaTime = schemaReader.loadSchemaTime();
+
     startTime0 = std::chrono::high_resolution_clock::now();
     auto selector = std::make_shared<dwio::common::ColumnSelector>(
         schemaReader.type(), selectedColumns);
-    loadSchemaTimes[std::stoi(num)] += toMilliseconds(endTime0 - startTime0);
-    selectors[std::stoi(num)] = selector;
+    loadSchemaTime += toMilliseconds(endTime0 - startTime0);
     endTime0 = std::chrono::high_resolution_clock::now();
     std::cout << "Selector time: " << toMilliseconds(endTime0 - startTime0)
               << " ms" << std::endl;
-  }
 
-  // Process each Nimble file
-  for (const auto& num : fileNumbers) {
-    try {
-      std::cout << "Reading " << num << std::endl;
-      auto num_int = std::stoi(num);
-      auto startTime = std::chrono::high_resolution_clock::now();
-      // Create new reader with selected columns
-      auto readFile = std::make_shared<velox::LocalReadFile>(
-          "/home/xinyu/fff-devel/data_8rows/" + num + ".nimble");
-      VeloxReader reader(*leafPool, readFile.get(), selectors[num_int]);
+    auto startTime = std::chrono::high_resolution_clock::now();
+    // Create new reader with selected columns
+    readFile = std::make_shared<velox::LocalReadFile>(
+        "/home/xinyu/fff-devel/data_8rows/" + num + ".nimble");
+    VeloxReader reader(*leafPool, readFile.get(), selector);
 
-      // Read batches and measure time
-      constexpr int32_t batchSize = 64 * 1024;
-      std::vector<velox::VectorPtr> batches;
-      velox::VectorPtr batch = nullptr;
-      size_t totalRows = 0;
+    // Read batches and measure time
+    constexpr int32_t batchSize = 64 * 1024;
+    std::vector<velox::VectorPtr> batches;
+    velox::VectorPtr batch = nullptr;
+    size_t totalRows = 0;
 
-      while (reader.next(batchSize, batch)) {
-        if (batch) {
-          totalRows += batch->size();
-          batches.push_back(batch);
-          batch = nullptr;
-        }
+    while (reader.next(batchSize, batch)) {
+      if (batch) {
+        totalRows += batch->size();
+        batches.push_back(batch);
+        batch = nullptr;
       }
-
-      auto endTime = std::chrono::high_resolution_clock::now();
-      auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
-          endTime - startTime);
-
-      double ms = toMilliseconds(duration) + loadSchemaTimes[num_int];
-      double throughput = calculateThroughput(totalRows, ms);
-
-      // Write results to CSV
-      csvFile << num << "," << num_int << "," << totalRows << "," << ms << ","
-              << throughput << "\n";
-
-      std::cout << "Successfully read " << totalRows << " rows in " << ms
-                << " ms (" << throughput << " M rows/s)" << std::endl;
-
-    } catch (const std::exception& e) {
-      std::cerr << "Error reading " << num << ": " << e.what() << std::endl;
-      csvFile << num << ",error,error,error,error\n";
     }
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        endTime - startTime);
+
+    double ms = toMilliseconds(duration) + loadSchemaTime;
+    double throughput = calculateThroughput(totalRows, ms);
+
+    // Write results to CSV
+    csvFile << num << "," << totalColumns << "," << totalRows << "," << ms
+            << "," << throughput << "\n";
+
+    std::cout << "Successfully read " << totalRows << " rows in " << ms
+              << " ms (" << throughput << " M rows/s)" << std::endl;
+
+  } catch (const std::exception& e) {
+    std::cerr << "Error reading " << num << ": " << e.what() << std::endl;
+    csvFile << num << ",error,error,error,error\n";
   }
 
   csvFile.close();

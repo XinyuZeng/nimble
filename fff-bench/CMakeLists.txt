@@ -85,6 +85,18 @@ target_link_libraries(projection_nimble PRIVATE
   nimble_velox_layout_planner
 )
 
+add_executable(projection_nimble_profile projection_nimble_profile.cpp)
+target_link_libraries(projection_nimble_profile PRIVATE 
+  velox_dwio_common 
+  velox_dwio_parquet_reader 
+  velox_memory
+  velox_vector
+  nimble_velox_writer 
+  nimble_velox_reader
+  nimble_velox_common
+  nimble_velox_field_writer
+  nimble_velox_layout_planner
+)
 
 add_executable(projection_nimble_laion projection_nimble_laion.cpp)
 target_link_libraries(projection_nimble_laion PRIVATE 

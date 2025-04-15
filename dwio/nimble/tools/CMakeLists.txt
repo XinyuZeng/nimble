@@ -14,3 +14,6 @@
 add_library(nimble_tools_common EncodingUtilities.cpp)
 
 target_link_libraries(nimble_tools_common nimble_common)
+
+# add_executable(nimble_dump NimbleDump.cpp)
+# target_link_libraries(nimble_dump nimble_common Folly::folly)

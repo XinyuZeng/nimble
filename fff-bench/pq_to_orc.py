@@ -22,7 +22,7 @@ def convert_parquet_to_orc(parquet_path, orc_path):
     table = pq.read_table(parquet_path)
     
     # Write the PyArrow Table to ORC format
-    orc.write_table(table, orc_path, compression="ZLIB", dictionary_key_size_threshold=0.8)
+    orc.write_table(table, orc_path, compression="SNAPPY", dictionary_key_size_threshold=0.8)
     
     print(f"Successfully converted {parquet_path} to {orc_path}")
 
