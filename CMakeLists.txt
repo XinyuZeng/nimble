@@ -47,6 +47,9 @@ set(VELOX_ENABLE_PARQUET ON)
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+# Include the CheckCXXCompilerFlag module for compiler flag checks
+include(CheckCXXCompilerFlag)
+
 # Ignore known compiler warnings.
 check_cxx_compiler_flag("-Wstringop-overread" COMPILER_HAS_W_STRINGOP_OVERREAD)
 if(COMPILER_HAS_W_STRINGOP_OVERREAD)

@@ -118,3 +118,40 @@ target_link_libraries(projection_orc PRIVATE
   velox_memory
   velox_vector
 )
+
+add_executable(selection_orc selection_orc.cpp)
+target_link_libraries(selection_orc PRIVATE 
+  velox_dwio_common 
+  velox_dwio_orc_reader
+  velox_memory
+  velox_vector
+)
+
+add_executable(selection_nimble selection_nimble.cpp)
+target_link_libraries(selection_nimble PRIVATE 
+  velox_dwio_common 
+  velox_memory
+  velox_vector
+  nimble_velox_writer 
+  nimble_velox_reader
+  nimble_velox_common
+  nimble_velox_field_writer
+  nimble_velox_layout_planner
+)
+
+add_executable(projection_orc_laion projection_orc_laion.cpp)
+target_link_libraries(projection_orc_laion PRIVATE 
+  velox_dwio_common 
+  velox_dwio_orc_reader
+  velox_memory
+  velox_vector
+)
+
+add_executable(mem_orc_to_dwrf mem_orc_to_dwrf.cpp)
+target_link_libraries(mem_orc_to_dwrf PRIVATE
+  velox_dwio_common
+  velox_dwio_orc_reader
+  velox_dwio_dwrf_writer
+  velox_memory
+  velox_vector
+)
