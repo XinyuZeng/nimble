@@ -57,12 +57,14 @@ std::vector<uint64_t> getRandomColumns(
 }
 
 int main(int argc, char* argv[]) {
-  if (argc != 2) {
-    std::cerr << "Usage: " << argv[0] << " <row_number>" << std::endl;
+  if (argc != 3) {
+    std::cerr << "Usage: " << argv[0] << " <row_number> <file_path>"
+              << std::endl;
     return 1;
   }
 
   std::string num = argv[1];
+  std::string file_path = argv[2];
   uint32_t row_id = std::stoi(num);
 
   // Initialize memory management and register ORC reader
@@ -90,8 +92,7 @@ int main(int argc, char* argv[]) {
     // Create reader with selected columns
     auto reader = factory->createReader(
         std::make_unique<BufferedInput>(
-            std::make_shared<LocalReadFile>(
-                "/mnt/nvme0n1/xinyu/tpch/orc_cpp/lineitem_duckdb_double.orc"),
+            std::make_shared<LocalReadFile>(file_path),
             readerOpts.memoryPool()),
         readerOpts);
 

@@ -27,12 +27,13 @@ double calculateThroughput(size_t rows, double milliseconds) {
 }
 
 int main(int argc, char* argv[]) {
-  if (argc != 2) {
-    std::cerr << "Usage: " << argv[0] << " <row_id>" << std::endl;
+  if (argc != 3) {
+    std::cerr << "Usage: " << argv[0] << " <row_id> <file_path>" << std::endl;
     return 1;
   }
 
   std::string num = argv[1];
+  std::string file_path = argv[2];
   uint32_t row_id = std::stoi(num);
 
   // Initialize memory management
@@ -46,8 +47,7 @@ int main(int argc, char* argv[]) {
     auto startTime = std::chrono::high_resolution_clock::now();
 
     // Create reader
-    auto readFile = std::make_shared<velox::LocalReadFile>(
-        "/mnt/nvme0n1/xinyu/tpch/nimble_uncomp/lineitem_duckdb_double.nimble");
+    auto readFile = std::make_shared<velox::LocalReadFile>(file_path);
 
     // Create a reader that reads all columns
     VeloxReader reader(*leafPool, readFile.get());
